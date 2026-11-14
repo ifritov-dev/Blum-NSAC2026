@@ -12,8 +12,9 @@ Built by team Blum for the NASA Space Apps Challenge (Flame in Freefall: AI-Powe
 | Oxygen chart | O2 range per series, with reference lines for Earth (21%) and the expected lunar level (30% or more). Bars that reach 30% are highlighted. |
 | Gap map | For every series, shows which parameters (pressure, airflow, fuel/material, sample size, diluent, temperature, combustion result, cameras/sensors) are present, partial or missing. A summary table shows what is missing most often. Export to Excel or CSV. |
 | Series comparison | Side-by-side comparison of 2 to 3 series: parameter coverage, differences highlighted, shared and unique columns. |
+| Relevance ranking | Goal-based scoring (Lunar 30%+ O₂, Predictive modeling, Suppression, Smoke/aerosol detection) with hardware context (CIR, MDCA, MSG). |
 | Series catalog and card | Overview of all series, and a detailed card with the raw tests and per-column data completeness. |
-| AI assistant | A chat in the sidebar that answers questions only from the dataset, naming the series and PSI accession number. **Status: in progress** (the place and the connection code are prepared in `app.py`). |
+| AI assistant | A chat in the sidebar powered by Coarena Model API (`ai.py`) with model selection, quick prompts, grounded PSI answers (series + PSI accession), and thumbs feedback. |
 
 ### Reading the gap map
 
@@ -54,11 +55,11 @@ The whole app is one Streamlit script, `app.py`, organized in blocks:
 5. Gap map. This block must stay above the comparison and series card, which reuse its helpers.
 6. Series comparison, catalog and series card.
 
-The AI assistant lives in `ai.py` and is called as `ask(question, tables)`. It must answer only from the data, name the series and PSI accession, and say so when the data is missing.
+The AI assistant lives in `ai.py` and exposes `ask(question, tables)` / `ask_with_meta(...)` via Coarena's Anthropic-compatible API (`https://coarena.ai/api`), fetching available models from `https://coarena.ai/api/v1/models` and submitting ratings to `POST https://coarena.ai/api/v1/feedback`. It answers only from the data, names the series and PSI accession, and says so when data is missing.
 
 ## Run it locally
 
-Requires Python 3.13.
+Requires Python 3.13+.
 
 ```
 python -m venv .venv
@@ -73,22 +74,25 @@ Run it from the project folder, in a terminal (not with an IDE run button), so t
 
 ```
 app.py                       the dashboard
-ai.py                        AI assistant (in progress)
+ai.py                        AI assistant (Coarena API + feedback)
 experimental_dataset.json    PSI data
 requirements.txt             dependencies
 .streamlit/config.toml       colors and theme
 .streamlit/secrets.toml      API key (never committed)
 ```
 
-### AI assistant setup
+### AI assistant setup (Coarena Model API)
 
 Create `.streamlit/secrets.toml` (it is in `.gitignore`):
 
-```
-ANTHROPIC_API_KEY = "your key"
+```toml
+COARENA_API_KEY = "your_coarena_key"
+COARENA_BASE_URL = "https://coarena.ai/api"
+COARENA_MODEL = "gpt-6-luna"
+COARENA_EFFORT = "medium"
 ```
 
-Never commit a key. If a key was ever pushed to GitHub, revoke it in the Anthropic console and create a new one.
+Pick any model ID from `https://coarena.ai/api/v1/models` (or switch models directly in the AI assistant sidebar). Never commit a key. If a key was ever pushed to GitHub, revoke it in your Coarena account and create a new one.
 
 ## Security notes
 

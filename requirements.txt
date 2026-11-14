@@ -1,3 +1,9 @@
-streamlit
+fastapi
+uvicorn[standard]
+pydantic
 pandas
-plotly
+openpyxl
+anthropic
+httpx
+httpx2
+certifi

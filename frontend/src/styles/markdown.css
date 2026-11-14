@@ -1,0 +1,91 @@
+.think-fade-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000000 45%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000000 45%, transparent 100%);
+}
+
+.think-fade-clamp > .md-thinking > *:first-child {
+  margin-top: 0;
+}
+
+.md-message {
+  font-size: 13.5px;
+  line-height: 1.56;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.md-message p { margin: 0 0 0.55rem 0; }
+.md-message p:last-child { margin-bottom: 0; }
+.md-message ul, .md-message ol { margin: 0.25rem 0 0.55rem 1.2rem; padding: 0; }
+.md-message ul { list-style-type: disc; }
+.md-message ol { list-style-type: decimal; }
+.md-message li { margin-bottom: 0.28rem; }
+.md-message strong { color: var(--ink); font-weight: 600; }
+.md-message code {
+  font-size: 11.5px;
+  background: var(--action-soft);
+  color: var(--action);
+  padding: 0.08rem 0.34rem;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.md-message pre {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  margin: 0.45rem 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: hidden;
+}
+.md-message pre code { background: transparent; padding: 0; color: var(--ink); }
+.md-message table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 0.45rem 0;
+}
+.md-message th, .md-message td {
+  border: 1px solid var(--border);
+  padding: 0.28rem 0.42rem;
+  text-align: left;
+  word-break: break-word;
+}
+.md-message th { background: var(--bg-subtle); font-weight: 600; }
+
+.md-thinking {
+  font-size: 11.5px;
+  line-height: 1.48;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.md-thinking p { margin: 0 0 0.32rem 0; }
+.md-thinking p:last-child { margin-bottom: 0; }
+.md-thinking h1, .md-thinking h2, .md-thinking h3, .md-thinking h4 {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  margin: 0.35rem 0 0.2rem 0;
+}
+.md-thinking ul, .md-thinking ol { margin: 0.18rem 0 0.32rem 1.05rem; padding: 0; }
+.md-thinking ul { list-style-type: disc; }
+.md-thinking ol { list-style-type: decimal; }
+.md-thinking li { margin-bottom: 0.14rem; }
+.md-thinking strong { color: var(--ink); font-weight: 600; }
+.md-thinking code {
+  font-size: 10.5px;
+  background: var(--bg-subtle);
+  color: var(--ink-secondary);
+  padding: 0.04rem 0.24rem;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

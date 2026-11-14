@@ -1,4 +1,6 @@
+import html as html_lib
 import json
+import logging
 import re
 from io import BytesIO
 from pathlib import Path
@@ -6,6 +8,18 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+
+from ai import (
+    DOMAIN_TAGS,
+    get_api_key,
+    get_default_effort,
+    get_default_model,
+    list_models,
+    send_feedback,
+    stream_agent,
+)
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Fire Safety in Space", layout="wide",
                    initial_sidebar_state="expanded")
@@ -136,7 +150,458 @@ k3.metric("Series reaching 30% O₂", moon_series_total)
 
 
 # ---------------------------------------------------------------------------
-# Sidebar: filters
+# Sidebar layout & styling (compact fixed header, full-height bottom-docked
+# AI composer, zero horizontal/vertical scrollbars, clean slate-indigo theme,
+# and compact collapsible reasoning/trace timeline)
+# ---------------------------------------------------------------------------
+
+st.markdown(
+    """
+    <style>
+    /* --- Sidebar shell & zero-horizontal-overflow guarantee --- */
+    section[data-testid="stSidebar"] {
+        transition: width 0.2s ease, min-width 0.2s ease;
+        background: #F4F7FB !important;
+        border-right: 1px solid #E2E8F0 !important;
+        overflow-x: hidden !important;
+    }
+    section[data-testid="stSidebar"] * {
+        box-sizing: border-box;
+        max-width: 100%;
+    }
+    section[data-testid="stSidebar"]:has([role="tab"][aria-selected="true"]:nth-of-type(2)) {
+        min-width: 520px !important;
+        width: 520px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        padding: 0 0.85rem !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+    }
+    /* Hide every scrollbar visually across the entire sidebar while keeping scroll working */
+    section[data-testid="stSidebar"] * {
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+    section[data-testid="stSidebar"] *::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+    /* Ultra-compact top collapse header bar */
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+        flex: 0 0 auto !important;
+        padding: 0.15rem 0 0 0 !important;
+        margin: 0 !important;
+        min-height: 1.45rem !important;
+        height: 1.55rem !important;
+        background: #F4F7FB !important;
+        z-index: 20;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] button {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        min-height: 1.5rem !important;
+        padding: 0 !important;
+    }
+    /* User content fills remaining viewport height */
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        padding: 0 0 0.55rem 0 !important;
+        overflow: hidden !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        gap: 0.25rem !important;
+    }
+    /* Compact fixed title row ("Explore PSI" + count) */
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:first-child {
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:first-child [data-testid="stVerticalBlock"] {
+        flex: 0 0 auto !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:first-child [data-testid="stMarkdown"],
+    section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:first-child [data-testid="stElementContainer"] {
+        height: auto !important;
+        min-height: 1.35rem !important;
+    }
+    section[data-testid="stSidebar"] .psi-header-title {
+        font-size: 0.96rem;
+        font-weight: 700;
+        color: #0F172A;
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+        margin: 0;
+    }
+    section[data-testid="stSidebar"] .psi-header-count {
+        font-size: 0.76rem;
+        font-weight: 500;
+        color: #64748B;
+        text-align: right;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    /* Tabs shell: stretch to bottom of sidebar */
+    section[data-testid="stSidebar"] [data-testid="stTabs"] {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stTabs"] > div:has([role="tablist"]) {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+    }
+    /* Thin, compact segmented tab bar */
+    section[data-testid="stSidebar"] [role="tablist"] {
+        flex: 0 0 auto !important;
+        display: flex !important;
+        gap: 0.25rem !important;
+        background: #E2E8F0 !important;
+        padding: 0.18rem !important;
+        border-radius: 9px !important;
+        border-bottom: none !important;
+        margin: 0 0 0.25rem 0 !important;
+        min-height: 0 !important;
+        overflow-x: hidden !important;
+    }
+    section[data-testid="stSidebar"] [role="tab"] {
+        flex: 1 1 0 !important;
+        justify-content: center !important;
+        border-radius: 7px !important;
+        padding: 0.22rem 0.5rem !important;
+        min-height: 1.65rem !important;
+        height: 1.65rem !important;
+        font-size: 0.8rem !important;
+        line-height: 1.1 !important;
+        border: none !important;
+        margin: 0 !important;
+        color: #475569 !important;
+        background: transparent !important;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+    }
+    section[data-testid="stSidebar"] [role="tab"] p {
+        font-size: 0.8rem !important;
+        line-height: 1.1 !important;
+        margin: 0 !important;
+    }
+    section[data-testid="stSidebar"] [role="tab"]::after,
+    section[data-testid="stSidebar"] [role="tab"]::before {
+        display: none !important;
+        content: none !important;
+    }
+    section[data-testid="stSidebar"] [role="tab"][aria-selected="true"] {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+    }
+    section[data-testid="stSidebar"] [data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+    /* Active tab panel fills remaining vertical space */
+    section[data-testid="stSidebar"] [role="tabpanel"]:not([hidden]) {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        padding-top: 0.2rem !important;
+        overflow-x: hidden !important;
+    }
+    /* Filters panel scrolls vertically if needed without showing scrollbar */
+    section[data-testid="stSidebar"] [role="tabpanel"]:first-of-type:not([hidden]) {
+        overflow-y: auto !important;
+    }
+    section[data-testid="stSidebar"] [role="tabpanel"]:not([hidden]) > [data-testid="stVerticalBlock"] {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        gap: 0.35rem !important;
+    }
+    /* AI Chat scrollable container: takes ALL remaining space above bottom composer */
+    section[data-testid="stSidebar"] [role="tabpanel"]:not([hidden]) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:has([data-testid="stButton"], [data-testid="stChatMessage"]) {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    section[data-testid="stSidebar"] [role="tabpanel"]:not([hidden]) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:has([data-testid="stButton"], [data-testid="stChatMessage"]) > [data-testid="stVerticalBlock"] {
+        flex: 1 1 0% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding-right: 0.1rem !important;
+    }
+    /* Quick prompt buttons */
+    section[data-testid="stSidebar"] [data-testid="stButton"] button {
+        border-radius: 10px !important;
+        border: 1px solid #DCE3EE !important;
+        background: #FFFFFF !important;
+        color: #1E293B !important;
+        font-size: 0.8rem !important;
+        padding: 0.38rem 0.55rem !important;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+        border-color: #93C5FD !important;
+        background: #F8FAFC !important;
+        color: #1D4ED8 !important;
+    }
+    /* Bottom-docked composer + compact footer */
+    section[data-testid="stSidebar"] [data-testid="stElementContainer"]:has([data-testid="stChatInput"]) {
+        flex: 0 0 auto !important;
+        margin-top: auto !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatInput"] {
+        border-radius: 14px !important;
+        border: 1px solid #CBD5E1 !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05) !important;
+        padding: 0.1rem 0.25rem !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatInput"]:focus-within {
+        border-color: #3B82F6 !important;
+        box-shadow: 0 2px 12px rgba(37, 99, 235, 0.12) !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatInput"] textarea {
+        font-size: 0.88rem !important;
+        color: #0F172A !important;
+    }
+    section[data-testid="stSidebar"] [role="tabpanel"]:not([hidden]) > [data-testid="stVerticalBlock"] > [data-testid="stLayoutWrapper"]:last-child {
+        flex: 0 0 auto !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stPopover"] button {
+        border: none !important;
+        background: transparent !important;
+        padding: 0.12rem 0.4rem !important;
+        min-height: 1.55rem !important;
+        font-size: 0.76rem !important;
+        color: #475569 !important;
+        white-space: nowrap !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {
+        background: #E2E8F0 !important;
+        color: #0F172A !important;
+    }
+    /* Chat messages: clean user pill + crisp assistant markdown */
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] {
+        overflow-x: hidden !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+        background: #E8F0FE !important;
+        border: 1px solid #D0E0FB !important;
+        border-radius: 13px !important;
+        padding: 0.48rem 0.75rem !important;
+        margin-left: 2rem !important;
+        margin-bottom: 0.35rem !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) p {
+        font-size: 0.86rem !important;
+        color: #0F172A !important;
+        line-height: 1.4 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+        background: transparent !important;
+        border: none !important;
+        padding: 0.1rem 0.05rem !important;
+        margin-bottom: 0.45rem !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+        font-size: 0.86rem !important;
+        line-height: 1.48 !important;
+        color: #1E293B !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li {
+        font-size: 0.86rem !important;
+        line-height: 1.48 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] code {
+        word-break: break-word !important;
+        white-space: pre-wrap !important;
+        font-size: 0.75rem !important;
+        background: #EEF2F7 !important;
+        color: #1E3A8A !important;
+        padding: 0.06rem 0.28rem !important;
+        border-radius: 4px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] pre {
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        overflow-x: hidden !important;
+    }
+    section[data-testid="stSidebar"] table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        font-size: 0.75rem !important;
+        line-height: 1.3 !important;
+        word-break: break-word !important;
+    }
+    /* --- Minimalist Claude-style trace & thinking (<details> tree, no horizontal overflow) --- */
+    .trace-root {
+        margin: 0 0 0.35rem 0;
+        font-size: 0.78rem;
+        color: #64748B;
+    }
+    .trace-root > summary {
+        list-style: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.14rem 0.35rem 0.14rem 0;
+        font-size: 0.77rem;
+        font-weight: 500;
+        color: #64748B;
+        user-select: none;
+        transition: color 0.15s ease;
+    }
+    .trace-root > summary::-webkit-details-marker { display: none; }
+    .trace-root > summary:hover { color: #1E293B; }
+    .trace-chev {
+        display: inline-block;
+        font-size: 0.78rem;
+        transition: transform 0.15s ease;
+        color: #94A3B8;
+    }
+    .trace-root[open] > summary .trace-chev { transform: rotate(90deg); }
+    .trace-box {
+        margin-top: 0.25rem;
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        background: #FFFFFF;
+        overflow: hidden;
+    }
+    .trace-row {
+        padding: 0.36rem 0.62rem;
+        border-top: 1px solid #F1F5F9;
+        font-size: 0.76rem;
+        line-height: 1.38;
+        color: #475569;
+        overflow-wrap: anywhere;
+    }
+    .trace-row:first-child { border-top: none; }
+    .trace-row-title {
+        color: #334155;
+        font-weight: 500;
+    }
+    .trace-row-sub {
+        color: #64748B;
+        font-size: 0.72rem;
+        margin-top: 0.08rem;
+    }
+    /* Collapsible thinking block inside trace: shows first 3 lines faded until clicked */
+    .think-wrap {
+        padding: 0.36rem 0.62rem;
+        border-top: 1px solid #F1F5F9;
+        background: #FAFBFD;
+    }
+    .think-wrap:first-child { border-top: none; }
+    .think-toggle { display: block; }
+    .think-toggle > summary {
+        list-style: none;
+        cursor: pointer;
+        position: relative;
+        font-size: 0.73rem;
+        line-height: 1.42;
+        color: #475569;
+    }
+    .think-toggle > summary::-webkit-details-marker { display: none; }
+    .think-preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 0.725rem;
+        line-height: 1.42;
+        color: #475569;
+        -webkit-mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+        mask-image: linear-gradient(180deg, #000 45%, transparent 100%);
+    }
+    .think-toggle[open] > summary .think-preview {
+        display: none;
+    }
+    .think-hint {
+        display: inline-block;
+        margin-top: 0.16rem;
+        font-size: 0.69rem;
+        font-weight: 500;
+        color: #2563EB;
+    }
+    .think-toggle[open] > summary .think-hint {
+        color: #64748B;
+        margin-bottom: 0.25rem;
+    }
+    .think-full {
+        font-size: 0.725rem;
+        line-height: 1.45;
+        color: #334155;
+        overflow-wrap: anywhere;
+    }
+    .think-full p { margin: 0 0 0.28rem 0; }
+    .think-full p:last-child { margin-bottom: 0; }
+    .think-full ul, .think-full ol { margin: 0.15rem 0 0.28rem 1.05rem; padding: 0; }
+    .think-full li { margin-bottom: 0.12rem; }
+    .think-full code {
+        font-size: 0.69rem;
+        background: #EEF2F7;
+        color: #1E3A8A;
+        padding: 0.04rem 0.22rem;
+        border-radius: 3px;
+    }
+    .think-full strong { color: #0F172A; font-weight: 600; }
+    /* Live streaming thinking clamp (3 lines max while streaming) */
+    .live-think-box {
+        font-size: 0.725rem;
+        line-height: 1.4;
+        color: #475569;
+        background: #F8FAFC;
+        border-left: 2px solid #93C5FD;
+        padding: 0.3rem 0.55rem;
+        border-radius: 4px;
+        margin-bottom: 0.3rem;
+        overflow-wrap: anywhere;
+    }
+    /* Filter panel expander styling */
+    section[data-testid="stSidebar"] [data-testid="stExpander"] {
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        background: #FFFFFF;
+        overflow: hidden;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Sidebar: filters & AI research agent
 # ---------------------------------------------------------------------------
 
 def reset_filters():
@@ -147,29 +612,128 @@ def reset_filters():
     st.session_state["o2_threshold"] = 0
 
 
+def _inline_md_to_html(text: str) -> str:
+    escaped = html_lib.escape(text, quote=True)
+    escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^\*\n]+)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"(?<!\*)\*([^\*\n]+)\*(?!\*)", r"<em>\1</em>", escaped)
+    return escaped
+
+
+def _thinking_md_to_html(text: str) -> str:
+    lines = (text or "").strip().splitlines()
+    blocks: list[str] = []
+    list_items: list[str] = []
+    list_tag = "ul"
+
+    def flush_list():
+        nonlocal list_items
+        if list_items:
+            blocks.append(f"<{list_tag}>{''.join(list_items)}</{list_tag}>")
+            list_items = []
+
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            flush_list()
+            continue
+        m_ul = re.match(r"^[-*•]\s+(.+)$", line)
+        m_ol = re.match(r"^\d+[.)]\s+(.+)$", line)
+        m_h = re.match(r"^#{1,6}\s+(.+)$", line)
+        if m_ul:
+            if list_items and list_tag != "ul":
+                flush_list()
+            list_tag = "ul"
+            list_items.append(f"<li>{_inline_md_to_html(m_ul.group(1))}</li>")
+        elif m_ol:
+            if list_items and list_tag != "ol":
+                flush_list()
+            list_tag = "ol"
+            list_items.append(f"<li>{_inline_md_to_html(m_ol.group(1))}</li>")
+        elif m_h:
+            flush_list()
+            blocks.append(f"<p><strong>{_inline_md_to_html(m_h.group(1))}</strong></p>")
+        else:
+            flush_list()
+            blocks.append(f"<p>{_inline_md_to_html(line)}</p>")
+
+    flush_list()
+    return "".join(blocks)
+
+
+def _render_agent_trace(steps, thinking_text, duration_s=None):
+    if not steps and not thinking_text:
+        return
+    step_count = len(steps or [])
+    dur_str = f" · {duration_s:.0f}s" if duration_s else ""
+    if step_count:
+        last_label = steps[-1]["label"]
+        headline = f"{last_label} ({step_count} steps{dur_str})"
+    else:
+        headline = f"Thought{dur_str}"
+
+    rows_html: list[str] = []
+    if thinking_text:
+        think_html = _thinking_md_to_html(thinking_text)
+        plain_preview = _inline_md_to_html(re.sub(r"\s+", " ", thinking_text).strip())
+        rows_html.append(
+            "<div class='think-wrap'>"
+            "<details class='think-toggle'>"
+            "<summary>"
+            f"<div class='think-preview'>{plain_preview}</div>"
+            "<span class='think-hint'>Show full reasoning</span>"
+            "</summary>"
+            f"<div class='think-full'>{think_html}</div>"
+            "</details>"
+            "</div>"
+        )
+
+    for s in (steps or []):
+        title = html_lib.escape(s.get("label", ""))
+        preview = html_lib.escape(s.get("preview", ""))
+        sub_html = f"<div class='trace-row-sub'>{preview}</div>" if preview else ""
+        rows_html.append(
+            "<div class='trace-row'>"
+            f"<div class='trace-row-title'>› {title}</div>"
+            f"{sub_html}"
+            "</div>"
+        )
+
+    st.markdown(
+        "<details class='trace-root'>"
+        "<summary>"
+        f"<span>{html_lib.escape(headline)}</span>"
+        "<span class='trace-chev'>›</span>"
+        "</summary>"
+        f"<div class='trace-box'>{''.join(rows_html)}</div>"
+        "</details>",
+        unsafe_allow_html=True,
+    )
+
+
 # The sidebar stays visible while the main page is scrolled, so the AI chat
 # (second tab) can be used right next to the data.
 with st.sidebar:
-    st.title("Explore")
-    found_box = st.empty()  # filled below, once the filtered list is known
-    # Tab labels accept markdown: bold text, theme colors and Material icons (not emojis)
+    h_left, h_right = st.columns([3, 2], vertical_alignment="center")
+    h_left.markdown("<div class='psi-header-title'>Explore PSI</div>", unsafe_allow_html=True)
+    found_box = h_right.empty()  # filled below, once the filtered list is known
+
+    # Tab labels accept markdown: bold text and Material icons (not emojis)
     tab_filters, tab_ai = st.tabs([
-        ":material/tune: :blue[**Filters**]",
-        ":material/smart_toy: :orange[**AI assistant**]",
+        ":material/tune: **Filters**",
+        ":material/smart_toy: **AI Agent**",
     ])
 
     with tab_filters:
-        st.subheader("Search")
+        st.caption("Filter the 22 PSI combustion series by name, oxygen, or size.")
         search = st.text_input("Series name", key="search", max_chars=100,
-                               placeholder="for example: SAFFIRE")
+                               placeholder="e.g. SAFFIRE, FLEX, CFI-G")
 
-        st.subheader("Oxygen")
         only_o2 = st.checkbox("Only series with O₂ data", key="only_o2")
         o2_threshold = st.slider("Series max O₂ at least, %", 0, 100, 0, key="o2_threshold",
                                  help="Keeps series whose highest O₂ value reaches this level. "
                                       "Set 30 to see series relevant for lunar conditions.")
 
-        st.subheader("Size")
         max_tests = max(t["row_count"] for t in tables)
         min_tests = st.slider("Minimum tests in a series", 0, max_tests, 0, key="min_tests")
 
@@ -187,55 +751,198 @@ with st.sidebar:
                 "is not in PSI yet."
             )
 
-    # -----------------------------------------------------------------------
-    # AI assistant: PLACEHOLDER for the teammate working on ai.py
-    #
-    # Contract suggestion:
-    #   ai.py exposes  ask(question: str, tables: list) -> str
-    #   (returns plain text/markdown; may return None or raise: the code below
-    #   catches it and shows a generic error)
-    #
-    # Security notes for whoever implements this:
-    #   - API key only from st.secrets["ANTHROPIC_API_KEY"] or an env variable,
-    #     never hardcoded and never committed (.streamlit/secrets.toml is gitignored)
-    #   - limit question length, set max_tokens and a timeout, rate-limit per session
-    #   - treat dataset text and the question as DATA, not instructions (prompt injection)
-    #   - do not send the whole dataset: pre-select relevant series in code first
-    #   - render the answer with st.markdown WITHOUT unsafe_allow_html=True
-    #   - show a generic error to the user, never a traceback or the key
-    # -----------------------------------------------------------------------
     with tab_ai:
-        st.subheader("Ask about the experiments")
-        st.info("Coming soon: ask questions about the experiments. "
-                "Answers will be based only on PSI data.")
+        MAX_QUESTION_LEN = 500
+        MAX_QUESTIONS_PER_SESSION = 20
 
-        # from ai import ask
-        #
-        # MAX_QUESTION_LEN = 500
-        # MAX_QUESTIONS_PER_SESSION = 20
-        #
-        # # Chat history lives in session_state as (role, text) pairs
-        # history = st.session_state.setdefault("chat_history", [])
-        # for role, text in history:
-        #     with st.chat_message(role):
-        #         if role == "assistant":
-        #             st.markdown(text)  # no unsafe_allow_html
-        #         else:
-        #             st.text(text)  # user text shown as plain text
-        #
-        # question = st.chat_input("Ask about the experiments", max_chars=MAX_QUESTION_LEN)
-        # if question:
-        #     if len(history) // 2 >= MAX_QUESTIONS_PER_SESSION:
-        #         st.warning("Question limit reached for this session.")
-        #     else:
-        #         history.append(("user", question))
-        #         with st.spinner("Thinking..."):
-        #             try:
-        #                 answer = ask(question, tables)
-        #             except Exception:
-        #                 answer = None  # log details server-side, never show them to the user
-        #         history.append(("assistant", answer or "Could not get an answer. Please try again."))
-        #         st.rerun()
+        available_models = list_models()
+        model_ids = [m["id"] for m in available_models]
+        model_labels = {m["id"]: m["display_name"] for m in available_models}
+        model_efforts = {m["id"]: m.get("efforts", []) for m in available_models}
+        default_model = get_default_model()
+        default_idx = model_ids.index(default_model) if default_model in model_ids else 0
+
+        history = st.session_state.setdefault("chat_history", [])
+        chosen_model = st.session_state.get("ai_model", model_ids[default_idx])
+        efforts = model_efforts.get(chosen_model) or []
+        default_effort = get_default_effort()
+        chosen_effort = st.session_state.get(
+            "ai_effort",
+            default_effort if default_effort in efforts else (efforts[0] if efforts else None),
+        )
+
+        if not get_api_key():
+            st.warning(
+                "Coarena API key is not configured. Add `COARENA_API_KEY` to "
+                "`.streamlit/secrets.toml` (or environment variables)."
+            )
+
+        quick_prompts = [
+            ("Moon base (30%+ O₂)", "Rank the PSI series most relevant for a lunar base at 30%+ O2 and <=10.2 psi."),
+            ("Suppression & smoke", "Which PSI series cover fire suppression and smoke/aerosol detection?"),
+            ("Modeling gaps", "What parameters are most often missing for predictive flammability modeling?"),
+            ("CIR vs MSG rigs", "Compare the test conditions and fuels across CIR/ACME, MDCA, and MSG series."),
+        ]
+
+        chat_box = st.container(border=False)
+        with chat_box:
+            if not history:
+                st.caption("Ask about NASA PSI microgravity combustion tables. The agent inspects CSV files and streams its reasoning.")
+                qp_cols = st.columns(2)
+                queued_prompt = None
+                for idx, (btn_label, prompt_text) in enumerate(quick_prompts):
+                    if qp_cols[idx % 2].button(btn_label, key=f"qp_{idx}", use_container_width=True):
+                        queued_prompt = prompt_text
+            else:
+                queued_prompt = None
+
+            for idx, entry in enumerate(history):
+                role = entry["role"]
+                text = entry["text"]
+                with st.chat_message(role):
+                    if role == "assistant":
+                        _render_agent_trace(
+                            entry.get("steps"),
+                            entry.get("thinking"),
+                            entry.get("duration_s"),
+                        )
+                        st.markdown(text)  # no unsafe_allow_html
+                        req_id = entry.get("request_id")
+                        if req_id:
+                            fb_val = st.feedback("thumbs", key=f"fb_{idx}")
+                            prev_fb = entry.get("feedback")
+                            if fb_val is not None and fb_val != prev_fb:
+                                rating = "up" if fb_val == 1 else "down"
+                                if send_feedback(req_id, rating):
+                                    entry["feedback"] = fb_val
+                                    st.toast("Feedback sent to Coarena.")
+                    else:
+                        st.text(text)  # user text shown as plain text
+
+        # Bottom-pinned composer + real footer bar (model, effort, clear)
+        typed_question = st.chat_input("Write a message...", max_chars=MAX_QUESTION_LEN)
+        f_note, f_settings, f_clear = st.columns([1.4, 2.8, 0.8], vertical_alignment="center")
+        f_note.caption("PSI data only")
+        model_short = model_labels.get(chosen_model, chosen_model)
+        effort_tag = f" · {chosen_effort.title()}" if chosen_effort else ""
+        with f_settings.popover(f"{model_short}{effort_tag}", use_container_width=True):
+            chosen_model = st.selectbox(
+                "Model (Coarena)",
+                model_ids,
+                index=default_idx,
+                format_func=lambda mid: model_labels.get(mid, mid),
+                key="ai_model",
+            )
+            efforts = model_efforts.get(chosen_model) or []
+            if efforts:
+                effort_idx = efforts.index(default_effort) if default_effort in efforts else 0
+                chosen_effort = st.selectbox(
+                    "Thinking effort",
+                    efforts,
+                    index=effort_idx,
+                    key="ai_effort",
+                )
+            else:
+                chosen_effort = None
+        if history and f_clear.button("Clear", key="clear_chat", use_container_width=True):
+            st.session_state["chat_history"] = []
+            st.rerun()
+
+        question = typed_question or queued_prompt
+        if question:
+            if not get_api_key():
+                st.error("API key is missing. Add COARENA_API_KEY in .streamlit/secrets.toml.")
+            elif sum(1 for m in history if m["role"] == "user") >= MAX_QUESTIONS_PER_SESSION:
+                st.warning("Question limit reached for this session.")
+            else:
+                history.append({"role": "user", "text": question})
+                prior_turns = [
+                    {"role": m["role"], "content": m["text"]}
+                    for m in history[:-1]
+                ]
+                with chat_box:
+                    with st.chat_message("user"):
+                        st.text(question)
+                    with st.chat_message("assistant"):
+                        status_box = st.status("Planning & reasoning...", expanded=True)
+                        with status_box:
+                            think_slot = st.empty()
+                            steps_slot = st.empty()
+                        answer_slot = st.empty()
+
+                        live_steps = []
+                        live_thinking = []
+                        live_text = []
+                        final_meta = None
+                        try:
+                            for ev in stream_agent(
+                                question,
+                                tables,
+                                model=chosen_model,
+                                history=prior_turns,
+                                effort=chosen_effort,
+                            ):
+                                etype = ev["type"]
+                                elapsed = ev.get("elapsed_s", 0)
+                                if etype == "status":
+                                    status_box.update(label=f"{ev['text']} · {elapsed:.0f}s", state="running")
+                                elif etype == "tool_start":
+                                    live_steps.append(f"⏳ `{ev['name']}`...")
+                                    steps_slot.markdown("\n".join(f"- {s}" for s in live_steps))
+                                elif etype == "tool_done":
+                                    line = f"› **{ev['label']}**"
+                                    if ev.get("preview"):
+                                        line += f" — {ev['preview']}"
+                                    if live_steps:
+                                        live_steps[-1] = line
+                                    else:
+                                        live_steps.append(line)
+                                    steps_slot.markdown("\n".join(f"- {s}" for s in live_steps))
+                                elif etype == "thinking_delta":
+                                    live_thinking.append(ev["delta"])
+                                    snippet = "".join(live_thinking).strip()
+                                    think_slot.markdown(
+                                        f"<div class='live-think-box'>{_thinking_md_to_html(snippet[-700:])}</div>",
+                                        unsafe_allow_html=True,
+                                    )
+                                elif etype == "text_delta":
+                                    live_text.append(ev["delta"])
+                                    answer_slot.markdown("".join(live_text) + "▌")
+                                elif etype == "done":
+                                    final_meta = ev
+                            dur = final_meta.get("duration_s", 0) if final_meta else 0
+                            cnt = len(final_meta.get("steps", [])) if final_meta else 0
+                            status_box.update(
+                                label=f"Done · {cnt} steps · {dur:.0f}s",
+                                state="complete",
+                                expanded=False,
+                            )
+                        except Exception:
+                            logger.exception("AI assistant streaming failed")
+                            status_box.update(label="Agent error", state="error", expanded=False)
+                            final_meta = None
+
+                if final_meta:
+                    history.append({
+                        "role": "assistant",
+                        "text": final_meta["text"],
+                        "thinking": final_meta.get("thinking", ""),
+                        "steps": final_meta.get("steps", []),
+                        "duration_s": final_meta.get("duration_s"),
+                        "request_id": final_meta.get("request_id"),
+                        "feedback": None,
+                    })
+                else:
+                    history.append({
+                        "role": "assistant",
+                        "text": "Could not get an answer right now. Check your API key or try again.",
+                        "thinking": "",
+                        "steps": [],
+                        "duration_s": None,
+                        "request_id": None,
+                        "feedback": None,
+                    })
+                st.rerun()
 
 
 def passes(t):
@@ -252,7 +959,7 @@ def passes(t):
 
 
 filtered = [t for t in tables if passes(t)]
-found_box.metric("Series found", f"{len(filtered)} / {len(tables)}")
+found_box.markdown(f"<div class='psi-header-count'>{len(filtered)} / {len(tables)} series</div>", unsafe_allow_html=True)
 
 if not filtered:
     st.info("No series match these filters.")
@@ -419,6 +1126,79 @@ dl2.download_button("Download gap map (CSV)", csv, "gap_map.csv", "text/csv")
 
 st.warning("**Partial gravity** (Moon ≈0.16 g, Mars ≈0.38 g): per the NASA challenge description, "
            "PSI has no such data yet. It is expected from LUCI and FM2.")
+
+
+# ---------------------------------------------------------------------------
+# Relevance ranking & interpretation by exploration goal
+# ---------------------------------------------------------------------------
+
+st.subheader("Rank series by fire-safety goal", divider="blue")
+goal = st.selectbox(
+    "Exploration & safety scenario",
+    [
+        "Lunar base / pressurized rover (30%+ O₂, flammability)",
+        "Predictive flammability modeling (parameter completeness)",
+        "Fire suppression & dilution (CO₂ / He / N₂)",
+        "Smoke, aerosol & dust detection",
+    ],
+)
+
+
+def _rank_row(t, cov):
+    hw, role = DOMAIN_TAGS.get(t["series"], ("PSI", "Combustion"))
+    hi_o2 = t["o2"]["max"]
+    present_cnt = sum(1 for v in cov.values() if v >= 0.95)
+    partial_cnt = sum(1 for v in cov.values() if 0 < v < 0.95)
+
+    if goal.startswith("Lunar base"):
+        score = (50 if (hi_o2 is not None and hi_o2 >= 30) else (15 if hi_o2 is not None else 0))
+        score += round(20 * cov["Pressure"] + 15 * cov["Fuel/material"] + 15 * cov["Airflow"])
+        if t["series"] in ("SAFFIRE-1", "SAFFIRE-2", "SAFFIRE-3", "BASS", "BASS-II", "ACME / BRE", "CFI-G"):
+            score += 10
+        why = (
+            f"O₂ max {hi_o2:.1f}% (reaches 30%+ lunar target)" if (hi_o2 is not None and hi_o2 >= 30)
+            else (f"O₂ max {hi_o2:.1f}% (below 30%)" if hi_o2 is not None else "O₂ absent in table")
+        )
+    elif goal.startswith("Predictive"):
+        score = round(100 * (present_cnt + 0.5 * partial_cnt) / len(PARAMS))
+        score += min(t["row_count"] // 25, 10)
+        why = f"{present_cnt}/{len(PARAMS)} parameter groups >=95% filled across {t['row_count']} tests"
+    elif goal.startswith("Fire suppression"):
+        has_dil = cov["Diluent (N₂/He/CO₂)"] > 0
+        score = round(45 * cov["Diluent (N₂/He/CO₂)"] + 25 * cov["Combustion result"] + 15 * cov["Pressure"])
+        if t["series"] in ("FLEX", "FLEX-2", "ACME / s-Flame", "ACME / Flame Design"):
+            score += 15
+        why = "Includes diluent (N₂/He/CO₂) and extinction/combustion columns" if has_dil else "No diluent column in table"
+    else:
+        score = 80 if t["series"] in ("SAME", "SAME-R", "DAFT") else 0
+        score += round(15 * cov["Airflow"] + 10 * cov["Fuel/material"])
+        why = "Dedicated smoke/aerosol/dust detection study" if t["series"] in ("SAME", "SAME-R", "DAFT") else "Combustion study (not aerosol detection)"
+
+    return {
+        "Score": min(score, 100),
+        "Series": f'{t["series"]} #{t["id"]}',
+        "PSI": t["psi_accession"],
+        "Hardware": hw,
+        "Focus": role,
+        "Tests": t["row_count"],
+        "Why it ranks here": why,
+    }
+
+
+ranked_df = pd.DataFrame([_rank_row(t, cov) for t, cov in zip(filtered, cov_rows)])
+ranked_df = ranked_df.sort_values(["Score", "Tests"], ascending=[False, False]).reset_index(drop=True)
+st.dataframe(ranked_df, use_container_width=True, hide_index=True)
+
+with st.expander("Hardware context & Earth applications"):
+    st.markdown(
+        "- **CIR / ACME** (`ACME / BRE`, `CLD Flame`, `E-FIELD Flames`, `Flame Design`, `s-Flame`, `CFI-G`): "
+        "gaseous flames in the Combustion Integrated Rack; `E-FIELD Flames` uses electric fields to mimic partial gravity, "
+        "and `CFI-G` reaches up to 85% O₂.\n"
+        "- **CIR / MDCA** (`FLEX`, `FLEX-2`, `CFI`): liquid fuel droplets; `FLEX` tests atmosphere dilution with CO₂ and He.\n"
+        "- **MSG** (`BASS`, `BASS-II`, `SPICE`, `SLICE`) & `SAFFIRE-1/-2/-3`: solid materials (fabrics, PMMA) and co-flow flames.\n"
+        "- **Earth spin-offs**: fine-water-mist extinguishers from ISS research, improved terrestrial smoke detectors (`SAME`/`SAME-R`), "
+        "and protective firefighter gear."
+    )
 
 
 # ---------------------------------------------------------------------------
