@@ -9,6 +9,7 @@ export interface ModelsResponse {
   configured: boolean;
   default_model: string;
   default_effort: string;
+  efforts?: string[];
   models: ModelInfo[];
 }
 

@@ -1,5 +1,5 @@
-import { Moon, PanelLeftOpen, Sun } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Moon, PanelLeftOpen, SlidersHorizontal, Sparkles, Sun } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CatalogSection } from "./components/dashboard/CatalogSection";
 import { CompareSection } from "./components/dashboard/CompareSection";
 import { GapMapSection } from "./components/dashboard/GapMapSection";
@@ -19,9 +19,20 @@ export function App() {
   const { isDark, toggleTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState<"filters" | "ai">("filters");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
   const [selectedCardId, setSelectedCardId] = useState<number>(1);
   const seriesCardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = (e: MediaQueryListEvent) => {
+      setSidebarCollapsed(e.matches);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const filteredIds = useMemo(() => new Set(filteredSeries.map((s) => s.id)), [filteredSeries]);
 
@@ -58,7 +69,7 @@ export function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-page)] text-[var(--ink)]">
+    <div className="flex h-dvh w-screen overflow-hidden bg-[var(--bg-page)] text-[var(--ink)]">
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -75,18 +86,40 @@ export function App() {
         agent={agent}
       />
 
-      <main className="psi-scroll relative flex-1 min-w-0 h-screen overflow-y-auto overflow-x-hidden">
+      <main className="psi-scroll relative flex-1 min-w-0 h-dvh overflow-y-auto overflow-x-hidden">
         {sidebarCollapsed && (
-          <div className="fixed top-4 left-4 z-20 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(false)}
-              aria-label="Open sidebar"
-              className="psi-btn inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-card)]/95 px-2.5 py-1.5 text-xs font-medium text-[var(--ink)] backdrop-blur hover:bg-[var(--bg-elevated)]"
-            >
-              <PanelLeftOpen className="h-3.5 w-3.5 text-[var(--action)]" />
-              Explore PSI
-            </button>
+          <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-[var(--border)] bg-[var(--bg-page)]/90 px-4 py-2.5 backdrop-blur md:fixed md:top-4 md:left-4 md:border-none md:bg-transparent md:p-0 md:backdrop-blur-none">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("filters");
+                  setSidebarCollapsed(false);
+                }}
+                aria-label="Open sidebar"
+                className="psi-btn inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-card)]/95 px-2.5 py-1.5 text-xs font-medium text-[var(--ink)] backdrop-blur hover:bg-[var(--bg-elevated)]"
+              >
+                <PanelLeftOpen className="hidden h-3.5 w-3.5 text-[var(--action)] md:inline" />
+                <SlidersHorizontal className="h-3.5 w-3.5 text-[var(--action)] md:hidden" />
+                <span className="hidden md:inline">Explore PSI</span>
+                <span className="md:hidden">Filters</span>
+                <span className="rounded bg-[var(--bg-subtle)] px-1 py-0.2 font-mono text-[10.5px] text-[var(--ink-muted)] tabular-nums md:hidden">
+                  {filteredSeries.length}/{data.series.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("ai");
+                  setSidebarCollapsed(false);
+                }}
+                aria-label="Open AI Agent"
+                className="psi-btn inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-card)]/95 px-2.5 py-1.5 text-xs font-medium text-[var(--ink)] hover:bg-[var(--bg-elevated)] md:hidden"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-[var(--action)]" />
+                AI Agent
+              </button>
+            </div>
             <button
               type="button"
               onClick={toggleTheme}
@@ -98,7 +131,7 @@ export function App() {
           </div>
         )}
 
-        <div className="mx-auto max-w-[1200px] space-y-6 px-6 py-8 sm:px-10">
+        <div className="mx-auto max-w-[1200px] space-y-5 px-4 py-5 sm:space-y-6 sm:px-8 sm:py-8">
           <HeaderKpis
             totalSeries={data.series.length}
             totalTests={totalTests}

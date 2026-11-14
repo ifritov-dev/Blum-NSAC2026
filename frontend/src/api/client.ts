@@ -47,7 +47,6 @@ export async function submitFeedback(requestId: string, rating: "up" | "down"): 
 export async function streamAgentTurn(
   payload: {
     question: string;
-    model?: string;
     effort?: string | null;
     history: Array<{ role: "user" | "assistant"; content: string }>;
   },

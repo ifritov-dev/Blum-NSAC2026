@@ -378,7 +378,7 @@ def stream_agent(
     if not api_key:
         raise RuntimeError("Missing API key")
 
-    chosen_model = (model or get_default_model()).strip() or DEFAULT_MODEL
+    chosen_model = get_default_model().strip() or DEFAULT_MODEL
     chosen_effort = (effort or get_default_effort()).strip()
     models_meta = {m["id"]: m for m in list_models()}
     model_info = models_meta.get(chosen_model, {})

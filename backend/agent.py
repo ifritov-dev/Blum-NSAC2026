@@ -83,6 +83,18 @@ def list_models() -> list[dict[str, Any]]:
         return fallback
 
 
+def get_model_capabilities(model_id: str) -> dict[str, Any]:
+    for m in list_models():
+        if m["id"] == model_id:
+            return m
+    return {
+        "id": model_id,
+        "display_name": "GPT-6 Luna" if model_id == DEFAULT_MODEL else model_id,
+        "efforts": ["none", "low", "medium", "high", "xhigh"],
+        "reasoning": True,
+    }
+
+
 async def stream_agent(
     question: str,
     tables: list[dict[str, Any]],
@@ -98,10 +110,9 @@ async def stream_agent(
     if not api_key:
         raise RuntimeError("Missing API key")
 
-    chosen_model = (model or get_default_model()).strip() or DEFAULT_MODEL
+    chosen_model = get_default_model().strip() or DEFAULT_MODEL
     chosen_effort = (effort or get_default_effort()).strip()
-    models_meta = {m["id"]: m for m in list_models()}
-    model_info = models_meta.get(chosen_model, {})
+    model_info = get_model_capabilities(chosen_model)
     supported_efforts = model_info.get("efforts") or []
     supports_reasoning = model_info.get("reasoning", True)
 

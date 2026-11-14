@@ -54,18 +54,18 @@ export function OxygenChart({ series, isDark }: OxygenChartProps) {
   const stdBar = isDark ? "#4f8bff" : "#1a56db";
 
   return (
-    <section className="psi-card psi-enter-2 p-6">
+    <section className="psi-card psi-enter-2 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
         <div>
-          <h2 className="text-[18px] font-medium tracking-[-0.02em] text-[var(--ink)]">
+          <h2 className="text-[17px] font-medium tracking-[-0.02em] text-[var(--ink)] sm:text-[18px]">
             Oxygen range by series
           </h2>
-          <p className="mt-0.5 text-[13px] text-[var(--ink-muted)]">
+          <p className="mt-0.5 text-[12.5px] text-[var(--ink-muted)] sm:text-[13px]">
             Earth 21% O₂ (14.7 psi) · Lunar habitat 30%+ O₂ (≤10.2 psi) · Spacesuit 100% O₂ (4.3 psi)
           </p>
         </div>
 
-        <div className="flex items-center gap-4 text-[12px] text-[var(--ink-secondary)]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-[var(--ink-secondary)]">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: lunarBar }} />
             Reaches 30%+ O₂ (Moon)
@@ -79,52 +79,54 @@ export function OxygenChart({ series, isDark }: OxygenChartProps) {
 
       {chartData.length > 0 ? (
         <div className="mt-5">
-          <div className="h-[340px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 14, right: 12, left: 0, bottom: 56 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke={gridColor} vertical={false} />
-                <ReferenceArea y1={30} y2={100} fill={lunarBar} fillOpacity={isDark ? 0.055 : 0.06} />
-                <ReferenceLine
-                  y={30}
-                  stroke={lunarBar}
-                  strokeDasharray="4 4"
-                  label={{
-                    value: "Moon: 30%+",
-                    position: "insideTopLeft",
-                    fill: lunarBar,
-                    fontSize: 11,
-                    fontWeight: 500,
-                  }}
-                />
-                <ReferenceLine
-                  y={21}
-                  stroke={isDark ? "#fb7185" : "#be123c"}
-                  strokeDasharray="4 4"
-                  label={{
-                    value: "Earth: 21%",
-                    position: "insideBottomRight",
-                    fill: isDark ? "#fb7185" : "#be123c",
-                    fontSize: 11,
-                    fontWeight: 500,
-                  }}
-                />
-                <XAxis
-                  dataKey="name"
-                  interval={0}
-                  angle={-28}
-                  textAnchor="end"
-                  height={64}
-                  tick={{ fill: tickColor, fontSize: 11 }}
-                  axisLine={{ stroke: gridColor }}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fill: tickColor, fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  label={{ value: "O₂ %", angle: -90, position: "insideLeft", fill: tickColor, fontSize: 11 }}
-                />
+          <div className="psi-scroll overflow-x-auto">
+            <div className="h-[340px] min-w-[640px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 14, right: 14, left: 42, bottom: 64 }}>
+                  <CartesianGrid strokeDasharray="2 4" stroke={gridColor} vertical={false} />
+                  <ReferenceArea y1={30} y2={100} fill={lunarBar} fillOpacity={isDark ? 0.055 : 0.06} />
+                  <ReferenceLine
+                    y={30}
+                    stroke={lunarBar}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: "Moon: 30%+",
+                      position: "insideTopLeft",
+                      fill: lunarBar,
+                      fontSize: 11,
+                      fontWeight: 500,
+                    }}
+                  />
+                  <ReferenceLine
+                    y={21}
+                    stroke={isDark ? "#fb7185" : "#be123c"}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: "Earth: 21%",
+                      position: "insideBottomRight",
+                      fill: isDark ? "#fb7185" : "#be123c",
+                      fontSize: 11,
+                      fontWeight: 500,
+                    }}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    angle={-28}
+                    textAnchor="end"
+                    height={68}
+                    tick={{ fill: tickColor, fontSize: 11 }}
+                    axisLine={{ stroke: gridColor }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={42}
+                    domain={[0, 100]}
+                    tick={{ fill: tickColor, fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    label={{ value: "O₂ %", angle: -90, position: "insideLeft", dx: -4, fill: tickColor, fontSize: 11 }}
+                  />
                 <Tooltip
                   cursor={{ fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(20,22,25,0.035)" }}
                   content={({ active, payload }) => {
@@ -147,8 +149,9 @@ export function OxygenChart({ series, isDark }: OxygenChartProps) {
                     <Cell key={entry.name} fill={entry.lunar ? lunarBar : stdBar} />
                   ))}
                 </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12.5px] text-[var(--ink-secondary)]">

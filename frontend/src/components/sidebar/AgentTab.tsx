@@ -2,7 +2,7 @@ import { ArrowUp, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { LiveStreamState, TextStreamBuffer } from "../../hooks/useAgentChat";
 import { MAX_QUESTION_LEN } from "../../hooks/useAgentChat";
-import type { ChatMessage, ModelInfo } from "../../types/agent";
+import type { ChatMessage } from "../../types/agent";
 import { MarkdownBlock } from "../common/MarkdownBlock";
 import { AgentMessage } from "./AgentMessage";
 import { ElapsedTimer } from "./ElapsedTimer";
@@ -19,11 +19,8 @@ const QUICK_PROMPTS = [
 
 interface AgentTabProps {
   configured: boolean;
-  models: ModelInfo[];
-  selectedModel: string;
   selectedEffort: string;
   availableEfforts: string[];
-  onModelChange: (id: string) => void;
   onEffortChange: (effort: string) => void;
   messages: ChatMessage[];
   live: LiveStreamState | null;
@@ -40,11 +37,8 @@ interface AgentTabProps {
 export function AgentTab(props: AgentTabProps) {
   const {
     configured,
-    models,
-    selectedModel,
     selectedEffort,
     availableEfforts,
-    onModelChange,
     onEffortChange,
     messages,
     live,
@@ -60,7 +54,22 @@ export function AgentTab(props: AgentTabProps) {
 
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoStickRef = useRef(true);
+
+  const syncTextareaHeight = useCallback((el?: HTMLTextAreaElement | null) => {
+    const target = el ?? textareaRef.current;
+    if (!target) return;
+    const maxHeight = 144;
+    target.style.height = "auto";
+    const nextHeight = Math.min(target.scrollHeight, maxHeight);
+    target.style.height = `${nextHeight}px`;
+    target.style.overflowY = target.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, []);
+
+  useLayoutEffect(() => {
+    syncTextareaHeight();
+  }, [draft, syncTextareaHeight]);
 
   const stickToBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -180,19 +189,23 @@ export function AgentTab(props: AgentTabProps) {
         )}
         <div className="flex items-end gap-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] px-3 py-2 transition-colors focus-within:border-[var(--action)]">
           <textarea
+            ref={textareaRef}
             rows={1}
             value={draft}
             maxLength={MAX_QUESTION_LEN}
             disabled={!configured || limitReached}
             placeholder="Ask about PSI combustion tables..."
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              syncTextareaHeight(e.currentTarget);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSubmit();
               }
             }}
-            className="no-scrollbar max-h-24 min-h-[24px] flex-1 resize-none bg-transparent py-0.5 text-[13px] leading-snug text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none disabled:opacity-50"
+            className="no-scrollbar max-h-36 min-h-[24px] flex-1 resize-none overflow-y-hidden bg-transparent py-0.5 text-[13px] leading-snug text-[var(--ink)] placeholder:text-[var(--ink-muted)] outline-none disabled:opacity-50"
           />
           {live ? (
             <button
@@ -230,11 +243,8 @@ export function AgentTab(props: AgentTabProps) {
               </button>
             )}
             <ModelPopover
-              models={models}
-              selectedModel={selectedModel}
               selectedEffort={selectedEffort}
               availableEfforts={availableEfforts}
-              onModelChange={onModelChange}
               onEffortChange={onEffortChange}
             />
           </div>

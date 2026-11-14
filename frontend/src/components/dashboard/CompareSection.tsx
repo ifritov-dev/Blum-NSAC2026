@@ -53,7 +53,7 @@ export function CompareSection({ series, paramOrder }: CompareSectionProps) {
       : [];
 
   return (
-    <section className="psi-card space-y-5 p-6">
+    <section className="psi-card space-y-5 p-4 sm:p-6">
       <div className="border-b border-[var(--border)] pb-4">
         <h2 className="text-[18px] font-medium tracking-[-0.02em] text-[var(--ink)]">Compare series</h2>
         <p className="mt-0.5 text-[13px] text-[var(--ink-muted)]">

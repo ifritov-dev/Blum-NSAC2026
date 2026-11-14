@@ -10,8 +10,8 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import FRONTEND_DIST_DIR, get_api_key, get_default_effort, get_default_model
-from .agent import list_models, send_feedback, stream_agent
+from . import DEFAULT_MODEL, FRONTEND_DIST_DIR, get_api_key, get_default_effort, get_default_model
+from .agent import get_model_capabilities, list_models, send_feedback, stream_agent
 from .psi_data import build_summary_payload, export_gap_map, load_dataset
 
 logger = logging.getLogger(__name__)
@@ -114,11 +114,14 @@ def download_gap_map(
 
 @app.get("/api/agent/models")
 def agent_models() -> dict[str, Any]:
+    default_model = get_default_model() or DEFAULT_MODEL
+    model_info = get_model_capabilities(default_model)
     return {
         "configured": bool(get_api_key()),
-        "default_model": get_default_model(),
+        "default_model": default_model,
         "default_effort": get_default_effort(),
-        "models": list_models(),
+        "efforts": model_info.get("efforts") or ["none", "low", "medium", "high", "xhigh"],
+        "models": [model_info],
     }
 
 
@@ -134,7 +137,7 @@ async def agent_stream(req: AgentStreamRequest) -> StreamingResponse:
             async for ev in stream_agent(
                 req.question,
                 tables,
-                model=req.model,
+                model=None,
                 history=history,
                 effort=req.effort,
             ):

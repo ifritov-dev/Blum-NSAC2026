@@ -1,6 +1,6 @@
 import { Moon, PanelLeftClose, Sun } from "lucide-react";
 import type { LiveStreamState, TextStreamBuffer } from "../../hooks/useAgentChat";
-import type { ChatMessage, ModelInfo } from "../../types/agent";
+import type { ChatMessage } from "../../types/agent";
 import type { FilterState } from "../../types/psi";
 import { AgentTab } from "./AgentTab";
 import { FiltersTab } from "./FiltersTab";
@@ -20,11 +20,8 @@ interface SidebarProps {
   onResetFilters: () => void;
   agent: {
     configured: boolean;
-    models: ModelInfo[];
-    selectedModel: string;
     selectedEffort: string;
     availableEfforts: string[];
-    handleModelChange: (id: string) => void;
     setSelectedEffort: (effort: string) => void;
     messages: ChatMessage[];
     live: LiveStreamState | null;
@@ -56,12 +53,21 @@ export function Sidebar({
 }: SidebarProps) {
   if (collapsed) return null;
 
-  const widthClass = activeTab === "ai" ? "w-[460px] max-w-[92vw]" : "w-[320px] max-w-[90vw]";
+  const widthClass =
+    activeTab === "ai"
+      ? "w-full md:w-[460px] md:max-w-[92vw]"
+      : "w-[88vw] max-w-[360px] md:w-[320px]";
 
   return (
-    <aside
-      className={`${widthClass} shrink-0 h-screen flex flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)] overflow-hidden transition-[width] duration-200`}
-    >
+    <>
+      <div
+        aria-hidden="true"
+        onClick={onCollapse}
+        className="fixed inset-0 z-30 bg-black/45 backdrop-blur-[1px] md:hidden"
+      />
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 md:static md:z-auto ${widthClass} shrink-0 h-dvh flex flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)] shadow-2xl md:shadow-none overflow-hidden transition-[width] duration-200`}
+      >
       <div className="shrink-0 border-b border-[var(--border)] px-3.5 pt-3 pb-2.5">
         <div className="flex items-center justify-between gap-2 pb-2.5">
           <div className="flex items-center gap-2 min-w-0">
@@ -130,11 +136,8 @@ export function Sidebar({
         ) : (
           <AgentTab
             configured={agent.configured}
-            models={agent.models}
-            selectedModel={agent.selectedModel}
             selectedEffort={agent.selectedEffort}
             availableEfforts={agent.availableEfforts}
-            onModelChange={agent.handleModelChange}
             onEffortChange={agent.setSelectedEffort}
             messages={agent.messages}
             live={agent.live}
@@ -149,6 +152,7 @@ export function Sidebar({
           />
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -15,7 +15,7 @@ export function RankingSection({ goals, rankings, filteredIds }: RankingSectionP
   const rows = (rankings[goalId] || []).filter((r) => filteredIds.has(r.table_id));
 
   return (
-    <section className="psi-card space-y-5 p-6">
+    <section className="psi-card space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
         <div>
           <h2 className="text-[18px] font-medium tracking-[-0.02em] text-[var(--ink)]">
@@ -30,7 +30,7 @@ export function RankingSection({ goals, rankings, filteredIds }: RankingSectionP
           value={goalId}
           onChange={(e) => setGoalId(e.target.value)}
           aria-label="Exploration and safety scenario"
-          className="rounded-lg border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] outline-none focus:border-[var(--action)]"
+          className="w-full sm:w-auto max-w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] outline-none focus:border-[var(--action)]"
         >
           {goals.map((g) => (
             <option key={g.id} value={g.id}>

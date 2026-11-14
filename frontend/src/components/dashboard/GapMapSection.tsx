@@ -22,7 +22,7 @@ export function GapMapSection({ series, paramOrder, filters }: GapMapSectionProp
     .sort((a, b) => b.seriesWithout - a.seriesWithout);
 
   return (
-    <section className="psi-card space-y-5 p-6">
+    <section className="psi-card space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
         <div>
           <h2 className="text-[18px] font-medium tracking-[-0.02em] text-[var(--ink)]">

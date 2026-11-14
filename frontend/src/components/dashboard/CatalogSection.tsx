@@ -7,7 +7,7 @@ interface CatalogSectionProps {
 
 export function CatalogSection({ series, onSelectSeries }: CatalogSectionProps) {
   return (
-    <section className="psi-card space-y-4 p-6">
+    <section className="psi-card space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
         <h2 className="text-[18px] font-medium tracking-[-0.02em] text-[var(--ink)]">Series catalog</h2>
         <span className="text-[12.5px] text-[var(--ink-muted)]">Select a row to inspect records below</span>

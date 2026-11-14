@@ -756,15 +756,12 @@ with st.sidebar:
         MAX_QUESTIONS_PER_SESSION = 20
 
         available_models = list_models()
-        model_ids = [m["id"] for m in available_models]
-        model_labels = {m["id"]: m["display_name"] for m in available_models}
-        model_efforts = {m["id"]: m.get("efforts", []) for m in available_models}
         default_model = get_default_model()
-        default_idx = model_ids.index(default_model) if default_model in model_ids else 0
+        chosen_model = default_model
+        model_efforts = {m["id"]: m.get("efforts", []) for m in available_models}
 
         history = st.session_state.setdefault("chat_history", [])
-        chosen_model = st.session_state.get("ai_model", model_ids[default_idx])
-        efforts = model_efforts.get(chosen_model) or []
+        efforts = model_efforts.get(chosen_model) or ["none", "low", "medium", "high", "xhigh"]
         default_effort = get_default_effort()
         chosen_effort = st.session_state.get(
             "ai_effort",
@@ -819,21 +816,12 @@ with st.sidebar:
                     else:
                         st.text(text)  # user text shown as plain text
 
-        # Bottom-pinned composer + real footer bar (model, effort, clear)
+        # Bottom-pinned composer + real footer bar (effort, clear)
         typed_question = st.chat_input("Write a message...", max_chars=MAX_QUESTION_LEN)
         f_note, f_settings, f_clear = st.columns([1.4, 2.8, 0.8], vertical_alignment="center")
         f_note.caption("PSI data only")
-        model_short = model_labels.get(chosen_model, chosen_model)
-        effort_tag = f" · {chosen_effort.title()}" if chosen_effort else ""
-        with f_settings.popover(f"{model_short}{effort_tag}", use_container_width=True):
-            chosen_model = st.selectbox(
-                "Model (Coarena)",
-                model_ids,
-                index=default_idx,
-                format_func=lambda mid: model_labels.get(mid, mid),
-                key="ai_model",
-            )
-            efforts = model_efforts.get(chosen_model) or []
+        effort_label = chosen_effort.title() if chosen_effort else "Medium"
+        with f_settings.popover(f"Thinking · {effort_label}", use_container_width=True):
             if efforts:
                 effort_idx = efforts.index(default_effort) if default_effort in efforts else 0
                 chosen_effort = st.selectbox(

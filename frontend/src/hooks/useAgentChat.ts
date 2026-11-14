@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchModels, streamAgentTurn, submitFeedback } from "../api/client";
-import type { ActiveToolInfo, ChatMessage, ModelInfo, TraceStep } from "../types/agent";
+import type { ActiveToolInfo, ChatMessage, TraceStep } from "../types/agent";
 
 export const MAX_QUESTION_LEN = 500;
 export const MAX_QUESTIONS_PER_SESSION = 20;
+const DEFAULT_EFFORTS = ["none", "low", "medium", "high", "xhigh"];
 
 export interface LiveStreamState {
   status: string;
@@ -20,9 +21,8 @@ export interface TextStreamBuffer {
 }
 
 export function useAgentChat() {
-  const [models, setModels] = useState<ModelInfo[]>([]);
   const [configured, setConfigured] = useState(true);
-  const [selectedModel, setSelectedModel] = useState("gpt-6-luna");
+  const [availableEfforts, setAvailableEfforts] = useState<string[]>(DEFAULT_EFFORTS);
   const [selectedEffort, setSelectedEffort] = useState<string>("medium");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [live, setLive] = useState<LiveStreamState | null>(null);
@@ -35,12 +35,10 @@ export function useAgentChat() {
     fetchModels()
       .then((res) => {
         setConfigured(res.configured);
-        setModels(res.models);
-        const ids = res.models.map((m) => m.id);
-        const defModel = ids.includes(res.default_model) ? res.default_model : ids[0] || "gpt-6-luna";
-        setSelectedModel(defModel);
-        const mInfo = res.models.find((m) => m.id === defModel);
-        const efforts = mInfo?.efforts || [];
+        const defInfo = res.models.find((m) => m.id === res.default_model) ?? res.models[0];
+        const efforts =
+          (res.efforts && res.efforts.length ? res.efforts : defInfo?.efforts) || DEFAULT_EFFORTS;
+        setAvailableEfforts(efforts);
         if (efforts.includes(res.default_effort)) {
           setSelectedEffort(res.default_effort);
         } else if (efforts.length > 0) {
@@ -51,20 +49,6 @@ export function useAgentChat() {
         /* fallback defaults stay active */
       });
   }, []);
-
-  const currentModelInfo = models.find((m) => m.id === selectedModel);
-  const availableEfforts = currentModelInfo?.efforts ?? ["none", "low", "medium", "high", "xhigh"];
-
-  const handleModelChange = useCallback(
-    (modelId: string) => {
-      setSelectedModel(modelId);
-      const nextEfforts = models.find((m) => m.id === modelId)?.efforts ?? [];
-      if (nextEfforts.length && !nextEfforts.includes(selectedEffort)) {
-        setSelectedEffort(nextEfforts.includes("medium") ? "medium" : nextEfforts[0]);
-      }
-    },
-    [models, selectedEffort],
-  );
 
   const userCount = messages.filter((m) => m.role === "user").length;
   const limitReached = userCount >= MAX_QUESTIONS_PER_SESSION;
@@ -133,7 +117,6 @@ export function useAgentChat() {
         await streamAgentTurn(
           {
             question: q,
-            model: selectedModel,
             effort: availableEfforts.length ? selectedEffort : null,
             history: priorHistory,
           },
@@ -269,7 +252,7 @@ export function useAgentChat() {
         setLive(null);
       }
     },
-    [availableEfforts, configured, limitReached, live, messages, notifyTextDrained, selectedEffort, selectedModel],
+    [availableEfforts, configured, limitReached, live, messages, notifyTextDrained, selectedEffort],
   );
 
   const stopStreaming = useCallback(() => {
@@ -297,11 +280,8 @@ export function useAgentChat() {
 
   return {
     configured,
-    models,
-    selectedModel,
     selectedEffort,
     availableEfforts,
-    handleModelChange,
     setSelectedEffort,
     messages,
     live,

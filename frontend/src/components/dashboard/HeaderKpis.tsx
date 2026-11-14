@@ -33,7 +33,7 @@ export function HeaderKpis({
         </div>
       </div>
 
-      <div className="psi-enter-1 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="psi-enter-1 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <div className="psi-card px-5 py-4">
           <div className="text-[12.5px] font-medium text-[var(--ink-muted)]">Series in dataset</div>
           <div className="mt-2 flex items-baseline gap-2">
