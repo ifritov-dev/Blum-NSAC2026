@@ -8,13 +8,13 @@ Built by team Blum for the NASA Space Apps Challenge (Flame in Freefall: AI-Powe
 
 | Feature | What you get |
 | --- | --- |
-| Filters (sidebar) | Search by series name, minimum number of tests, only series with oxygen data, series whose maximum O2 reaches a chosen level. |
-| Oxygen chart | O2 range per series, with reference lines for Earth (21%) and the expected lunar level (30% or more). Bars that reach 30% are highlighted. |
+| Filters (sidebar) | Search by series name, minimum number of tests, only series with oxygen data, series whose maximum O₂ reaches a chosen level. |
+| Oxygen chart | O₂ range per series (Recharts), with reference lines for Earth (21%) and the expected lunar level (30% or more). Bars that reach 30% are highlighted. |
 | Gap map | For every series, shows which parameters (pressure, airflow, fuel/material, sample size, diluent, temperature, combustion result, cameras/sensors) are present, partial or missing. A summary table shows what is missing most often. Export to Excel or CSV. |
 | Series comparison | Side-by-side comparison of 2 to 3 series: parameter coverage, differences highlighted, shared and unique columns. |
-| Relevance ranking | Goal-based scoring (Lunar 30%+ O₂, Predictive modeling, Suppression, Smoke/aerosol detection) with hardware context (CIR, MDCA, MSG). |
-| Series catalog and card | Overview of all series, and a detailed card with the raw tests and per-column data completeness. |
-| AI assistant | A chat in the sidebar powered by Coarena Model API (`ai.py`) with model selection, quick prompts, grounded PSI answers (series + PSI accession), and thumbs feedback. |
+| Relevance ranking | Goal-based scoring (Lunar 30%+ O₂, Predictive modeling, Suppression, Smoke/aerosol detection) with hardware context (CIR/ACME, MDCA, MSG) and Earth spin-offs. |
+| Series catalog and card | Overview of all 22 series, and a detailed card with the raw tests and per-column data completeness. |
+| SI Research Agent | Real-time SSE streaming chat in the sidebar powered by Coarena Model API (`gpt-6-luna`) with thinking effort control, live tool trace (`list_psi_series`, `inspect_psi_table`, `search_psi_records`), quick prompts, grounded PSI answers (series + PSI accession), and thumbs feedback. |
 
 ### Reading the gap map
 
@@ -46,44 +46,55 @@ Please refer to PSI for the terms of use of the data.
 
 ## How it works
 
-The whole app is one Streamlit script, `app.py`, organized in blocks:
+The application consists of a **FastAPI** backend (`backend/`) serving a **React + TypeScript + Tailwind CSS** single-page application (`frontend/`), with Docker deployment support (`Dockerfile`, `heroku.yml`):
 
-1. Load and clean the data (cached with `st.cache_data`; the cache resets if the file changes).
-2. Detect oxygen columns by name, exclude flow rates (such as "O2 flow rate"), and convert fractions to percent.
-3. Sidebar filters.
-4. Oxygen chart (Plotly).
-5. Gap map. This block must stay above the comparison and series card, which reuse its helpers.
-6. Series comparison, catalog and series card.
-
-The AI assistant lives in `ai.py` and exposes `ask(question, tables)` / `ask_with_meta(...)` via Coarena's Anthropic-compatible API (`https://coarena.ai/api`), fetching available models from `https://coarena.ai/api/v1/models` and submitting ratings to `POST https://coarena.ai/api/v1/feedback`. It answers only from the data, names the series and PSI accession, and says so when data is missing.
+1. **Data layer (`backend/psi_data.py`, `backend/constants.py`)**: loads and caches `experimental_dataset.json`, cleans stray BOM characters in column names, detects oxygen columns (excluding flow rates), converts fractions to percent, calculates parameter coverage across 9 categories, and computes goal-based relevance rankings.
+2. **API & SSE streaming (`backend/main.py`)**: serves `/api/dataset`, `/api/series/{id}`, `/api/export/{csv|xlsx}`, `/api/agent/models`, `/api/agent/stream` (Server-Sent Events), `/api/agent/feedback`, and the built React SPA from `frontend/dist`.
+3. **SI Research Agent (`backend/agent.py`, `backend/agent_tools.py`)**: streams reasoning and tool calls via Coarena's Anthropic-compatible API (`https://coarena.ai/api`, default model `gpt-6-luna`), inspecting PSI tables on demand with `list_psi_series`, `inspect_psi_table`, and `search_psi_records`, citing exact series names, PSI accession numbers, and CSV source files, and submitting ratings to `POST https://coarena.ai/api/v1/feedback`.
+4. **Frontend (`frontend/src/`)**: interactive sidebar (filters & SI agent chat with live trace, thinking effort selector, dark/light theme, mobile layout) plus Recharts O₂ range visualization, gap map with export, goal-based ranking, series comparison, catalog, and raw test inspector.
 
 ## Run it locally
 
-Requires Python 3.13+.
+Requires Python 3.13+ and Node.js 20+.
 
-```
+1. Install Python dependencies and build the frontend:
+
+```bash
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+npm --prefix frontend ci
+npm --prefix frontend run build
 ```
 
-Run it from the project folder, in a terminal (not with an IDE run button), so that `.streamlit/config.toml` and the data file are found.
+2. Run the server:
+
+```bash
+uvicorn backend.main:app --host 0.0.0.0 --port 8000
+```
+
+For frontend hot-reload during development, run `npm --prefix frontend run dev` (proxies `/api` to `http://127.0.0.1:8000`).
 
 ### Project layout
 
 ```
-app.py                       the dashboard
-ai.py                        AI assistant (Coarena API + feedback)
-experimental_dataset.json    PSI data
-requirements.txt             dependencies
-.streamlit/config.toml       colors and theme
-.streamlit/secrets.toml      API key (never committed)
+backend/
+  main.py                    FastAPI server, REST endpoints, SSE stream, SPA serving
+  psi_data.py                PSI dataset loading, O₂ normalization, coverage, ranking, export
+  agent.py                   Coarena streaming AI agent & feedback client
+  agent_tools.py             PSI inspection tool schemas & handlers
+  constants.py               Domain tags, parameter regexes, challenge context, ranking goals
+frontend/
+  src/                       React + TypeScript + Tailwind dashboard & AI chat UI
+experimental_dataset.json    NASA PSI data (22 tables, 2,009 tests)
+Dockerfile / heroku.yml      Container deployment configuration
+requirements.txt             Python dependencies
+.streamlit/secrets.toml      API key (local only, never committed)
 ```
 
 ### AI assistant setup (Coarena Model API)
 
-Create `.streamlit/secrets.toml` (it is in `.gitignore`):
+Configure via environment variables or `.streamlit/secrets.toml` (in `.gitignore`):
 
 ```toml
 COARENA_API_KEY = "your_coarena_key"
@@ -92,30 +103,29 @@ COARENA_MODEL = "gpt-6-luna"
 COARENA_EFFORT = "medium"
 ```
 
-Pick any model ID from `https://coarena.ai/api/v1/models` (or switch models directly in the AI assistant sidebar). Never commit a key. If a key was ever pushed to GitHub, revoke it in your Coarena account and create a new one.
+Never commit an API key. If a key was ever pushed to GitHub, revoke it in your Coarena account and create a new one.
 
 ## Security notes
 
-- The app never renders raw HTML (`unsafe_allow_html` is not used), so dataset text cannot inject markup.
-- The API key is read from Streamlit secrets or an environment variable, never from code.
-- Exports guard against spreadsheet formula injection (cells starting with `=`, `+`, `-` or `@` are prefixed).
-- Data loading errors show a generic message, not a stack trace or file paths. For a public deployment also set `showErrorDetails = "none"` under `[client]` in `.streamlit/config.toml`.
-- AI requests are limited (question length, answers per session, token and time limits), and dataset text is passed to the model as data, not as instructions.
+- React renders markdown safely without raw HTML injection (`unsafe_allow_html` / `dangerouslySetInnerHTML` are not used for dataset content).
+- API keys are read from environment variables or `.streamlit/secrets.toml`, never hardcoded.
+- CSV/Excel exports guard against spreadsheet formula injection (cells starting with `=`, `+`, `-` or `@` are prefixed).
+- Server errors return generic messages to clients without stack traces or internal file paths.
+- AI requests enforce question length (`500` chars) and session limits (`20` questions), with dataset text and user queries wrapped in data tags to mitigate prompt injection.
 
 ## Demo scenarios
 
-1. **Engineer**: which series cover lunar conditions? Use the oxygen chart, the Moon column of the gap map, and the AI chat.
+1. **Engineer**: which series cover lunar conditions? Use the oxygen chart, the Moon column of the gap map, relevance ranking, and the SI agent.
 2. **Student**: compare two series, for example SAFFIRE-2 and BASS-II.
-3. **Researcher**: open the gap map, export it, and see which parameters are missing for future experiments.
+3. **Researcher**: open the gap map, export it to Excel/CSV, and ask the SI agent which parameters are missing for future experiments.
 
 ## Team
 
 | Role | Person |
-| --- |  |
-| Data and scientific verification | TODO |
-| Frontend (Streamlit) | Oleksandra Nedielko |
-| AI assistant (`ai.py`) | TODO |
-| The chart, presentation, README | TODO |
+| --- | --- |
+| Full-stack architecture, FastAPI backend, React UI & SI Agent | Team Blum |
+| Initial Streamlit prototype & frontend design | Oleksandra Nedielko |
+| Data, scientific verification & deployment | Team Blum |
 
 ## Resources
 
