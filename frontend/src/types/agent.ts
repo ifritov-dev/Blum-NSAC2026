@@ -33,8 +33,6 @@ export interface ChatMessage {
   thinking?: string;
   steps?: TraceStep[];
   duration_s?: number;
-  request_id?: string | null;
-  feedback?: "up" | "down" | null;
 }
 
 export interface AgentStreamEvent {

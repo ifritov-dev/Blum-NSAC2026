@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchModels, streamAgentTurn, submitFeedback } from "../api/client";
+import { fetchModels, streamAgentTurn } from "../api/client";
 import type { ActiveToolInfo, ChatMessage, TraceStep } from "../types/agent";
 
 export const MAX_QUESTION_LEN = 500;
@@ -26,7 +26,6 @@ export function useAgentChat() {
   const [selectedEffort, setSelectedEffort] = useState<string>("medium");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [live, setLive] = useState<LiveStreamState | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const textBufferRef = useRef<TextStreamBuffer>({ target: "", finished: false });
   const drainResolveRef = useRef<(() => void) | null>(null);
@@ -218,8 +217,6 @@ export function useAgentChat() {
               thinking: final.thinking,
               steps: final.steps,
               duration_s: final.duration_s,
-              request_id: final.request_id,
-              feedback: null,
             },
           ]);
         } else {
@@ -269,15 +266,6 @@ export function useAgentChat() {
     setMessages([]);
   }, [notifyTextDrained]);
 
-  const rateMessage = useCallback(async (msgId: string, requestId: string, rating: "up" | "down") => {
-    setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, feedback: rating } : m)));
-    const ok = await submitFeedback(requestId, rating);
-    if (ok) {
-      setToast("Feedback sent to Coarena");
-      setTimeout(() => setToast(null), 2200);
-    }
-  }, []);
-
   return {
     configured,
     selectedEffort,
@@ -288,10 +276,8 @@ export function useAgentChat() {
     textBufferRef,
     notifyTextDrained,
     limitReached,
-    toast,
     sendMessage,
     stopStreaming,
     clearHistory,
-    rateMessage,
   };
 }

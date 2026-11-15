@@ -29,21 +29,6 @@ export async function fetchModels(): Promise<ModelsResponse> {
   return res.json();
 }
 
-export async function submitFeedback(requestId: string, rating: "up" | "down"): Promise<boolean> {
-  try {
-    const res = await fetch("/api/agent/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ request_id: requestId, rating }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return Boolean(data.ok);
-  } catch {
-    return false;
-  }
-}
-
 export async function streamAgentTurn(
   payload: {
     question: string;

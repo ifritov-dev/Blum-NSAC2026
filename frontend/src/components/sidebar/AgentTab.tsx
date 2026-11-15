@@ -27,11 +27,9 @@ interface AgentTabProps {
   textBufferRef: React.MutableRefObject<TextStreamBuffer>;
   onTextDrained: () => void;
   limitReached: boolean;
-  toast: string | null;
   onSend: (q: string) => void;
   onStop: () => void;
   onClear: () => void;
-  onRate: (msgId: string, requestId: string, rating: "up" | "down") => void;
 }
 
 export function AgentTab(props: AgentTabProps) {
@@ -45,11 +43,9 @@ export function AgentTab(props: AgentTabProps) {
     textBufferRef,
     onTextDrained,
     limitReached,
-    toast,
     onSend,
     onStop,
     onClear,
-    onRate,
   } = props;
 
   const [draft, setDraft] = useState("");
@@ -139,7 +135,7 @@ export function AgentTab(props: AgentTabProps) {
         )}
 
         {messages.map((msg) => (
-          <AgentMessage key={msg.id} message={msg} onRate={onRate} />
+          <AgentMessage key={msg.id} message={msg} />
         ))}
 
         {live && (
@@ -152,9 +148,9 @@ export function AgentTab(props: AgentTabProps) {
             </div>
 
             {(live.thinking || live.steps.length > 0 || live.activeTools.length > 0) && (
-              <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+              <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
                 {live.thinking && (
-                  <div className="border-b border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2">
+                  <div className="border-b border-[var(--border)] bg-[var(--bg-subtle)]/75 px-3.5 py-2.5">
                     <div className="max-h-20 overflow-hidden">
                       <div className="think-fade-clamp">
                         <MarkdownBlock content={live.thinking} variant="thinking" />
@@ -182,11 +178,6 @@ export function AgentTab(props: AgentTabProps) {
       </div>
 
       <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg-sidebar)] px-3.5 pt-2.5 pb-2.5">
-        {toast && (
-          <div className="mb-1.5 text-center text-[11px] font-medium text-[var(--action)]">
-            {toast}
-          </div>
-        )}
         <div className="flex items-end gap-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-card)] px-3 py-2 transition-colors focus-within:border-[var(--action)]">
           <textarea
             ref={textareaRef}

@@ -51,10 +51,10 @@ function groupSteps(steps: TraceStep[]): StepGroup[] {
 function StepDot({ tool, pulse }: { tool: string; pulse?: boolean }) {
   const color =
     tool === "inspect_psi_table"
-      ? "bg-[var(--action)]"
+      ? "bg-[var(--action)] ring-4 ring-[var(--action-soft)]"
       : tool === "search_psi_records"
-        ? "bg-[var(--amber)]"
-        : "bg-[var(--ink-muted)]";
+        ? "bg-[var(--amber)] ring-4 ring-[var(--amber-soft)]"
+        : "bg-[var(--teal)] ring-4 ring-[var(--teal-soft)]";
   return <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${color} ${pulse ? "animate-pulse" : ""}`} />;
 }
 
@@ -73,23 +73,32 @@ export function TraceStepsList({
   const toggleItem = (key: string) => setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div>
+    <div className="relative py-1">
       {groups.map((group, idx) => {
         const isGroupOpen = Boolean(openGroups[group.key]);
         const isBatch = group.items.length > 1;
         const hasDetails = isBatch || Boolean(group.subtitle);
+        const isLast = idx === groups.length - 1 && activeTools.length === 0;
 
         return (
-          <div key={group.key} className={idx > 0 ? "border-t border-[var(--border)]" : ""}>
+          <div key={group.key} className="relative">
+            {!isLast && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute top-[20px] bottom-0 left-[17.5px] w-px bg-[var(--border)]"
+              />
+            )}
             <button
               type="button"
               disabled={!hasDetails}
               onClick={() => hasDetails && toggleGroup(group.key)}
-              className="flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--bg-subtle)] disabled:cursor-default disabled:hover:bg-transparent"
+              className="flex w-full items-start gap-3 px-3.5 py-2 text-left transition-colors hover:bg-[var(--bg-subtle)]/70 disabled:cursor-default disabled:hover:bg-transparent"
             >
-              <span className="mt-1.5 flex items-center"><StepDot tool={group.tool} /></span>
+              <span className="relative z-10 mt-1.5 flex items-center justify-center">
+                <StepDot tool={group.tool} />
+              </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-1.5">
+                <span className="flex items-center justify-between gap-2">
                   <span className="truncate text-[11.5px] font-medium text-[var(--ink)]">{group.title}</span>
                   {hasDetails && (
                     <span className="shrink-0 text-[var(--ink-muted)]">
@@ -104,7 +113,7 @@ export function TraceStepsList({
             </button>
 
             {isGroupOpen && (
-              <div className="border-t border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2 space-y-1.5">
+              <div className="relative z-10 ml-7 mr-3 mb-2 rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)]/85 p-2 space-y-1.5">
                 {isBatch ? (
                   group.items.map((item, subIdx) => {
                     const itemKey = `${group.key}-${subIdx}`;
@@ -129,7 +138,7 @@ export function TraceStepsList({
                   })
                 ) : (
                   group.subtitle && (
-                    <div className="px-0.5 py-0.5 text-[11px] leading-relaxed text-[var(--ink-secondary)] break-words">
+                    <div className="px-1 py-0.5 text-[11px] leading-relaxed text-[var(--ink-secondary)] break-words">
                       {group.subtitle}
                     </div>
                   )
@@ -143,11 +152,11 @@ export function TraceStepsList({
       {activeTools.map((tool, i) => (
         <div
           key={tool.id || `${tool.name}-${i}`}
-          className={`flex items-center gap-2.5 px-3 py-2 text-[11.5px] text-[var(--action)] ${
-            groups.length > 0 || i > 0 ? "border-t border-[var(--border)]" : ""
-          }`}
+          className="relative flex items-center gap-3 px-3.5 py-2 text-[11.5px] text-[var(--action)]"
         >
-          <StepDot tool={tool.name} pulse />
+          <span className="relative z-10 flex items-center justify-center">
+            <StepDot tool={tool.name} pulse />
+          </span>
           <span className="truncate font-medium">{tool.label}</span>
         </div>
       ))}

@@ -3,19 +3,21 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg-page: #f5f5f3;
-  --bg-sidebar: #ededeb;
+  --bg-page: #f5f6f8;
+  --bg-sidebar: #eef0f4;
   --bg-card: #ffffff;
-  --bg-elevated: #fafaf8;
-  --bg-subtle: #f1f1ee;
-  --ink: #141619;
-  --ink-secondary: #3f444e;
-  --ink-muted: #686e7a;
-  --border: rgba(20, 22, 25, 0.09);
-  --border-strong: rgba(20, 22, 25, 0.16);
-  --action: #1a56db;
-  --action-hover: #1446b8;
-  --action-soft: rgba(26, 86, 219, 0.08);
+  --bg-elevated: #f8f9fb;
+  --bg-subtle: #f1f3f7;
+  --ink: #111827;
+  --ink-secondary: #374151;
+  --ink-muted: #6b7280;
+  --border: rgba(15, 23, 42, 0.085);
+  --border-strong: rgba(15, 23, 42, 0.15);
+  --action: #2563eb;
+  --action-hover: #1d4ed8;
+  --action-soft: rgba(37, 99, 235, 0.085);
+  --teal: #0f766e;
+  --teal-soft: rgba(15, 118, 110, 0.09);
   --amber: #b45309;
   --amber-soft: rgba(217, 119, 6, 0.11);
   --danger: #be123c;
@@ -25,19 +27,21 @@
 }
 
 html.dark {
-  --bg-page: #0a0b0e;
-  --bg-sidebar: #0e1015;
-  --bg-card: #13161d;
-  --bg-elevated: #181c25;
-  --bg-subtle: #111319;
-  --ink: #f1f3f5;
-  --ink-secondary: #c5cbd4;
-  --ink-muted: #848c99;
+  --bg-page: #0a0c10;
+  --bg-sidebar: #0e1117;
+  --bg-card: #131720;
+  --bg-elevated: #181d28;
+  --bg-subtle: #11141c;
+  --ink: #f3f4f6;
+  --ink-secondary: #c7ced9;
+  --ink-muted: #8b94a3;
   --border: rgba(255, 255, 255, 0.085);
   --border-strong: rgba(255, 255, 255, 0.16);
-  --action: #4f8bff;
-  --action-hover: #6ea0ff;
-  --action-soft: rgba(79, 139, 255, 0.13);
+  --action: #60a5fa;
+  --action-hover: #93c5fd;
+  --action-soft: rgba(96, 165, 250, 0.13);
+  --teal: #2dd4bf;
+  --teal-soft: rgba(45, 212, 191, 0.12);
   --amber: #f59e0b;
   --amber-soft: rgba(245, 158, 11, 0.14);
   --danger: #fb7185;

@@ -28,11 +28,9 @@ interface SidebarProps {
     textBufferRef: React.MutableRefObject<TextStreamBuffer>;
     notifyTextDrained: () => void;
     limitReached: boolean;
-    toast: string | null;
     sendMessage: (q: string) => void;
     stopStreaming: () => void;
     clearHistory: () => void;
-    rateMessage: (msgId: string, requestId: string, rating: "up" | "down") => void;
   };
 }
 
@@ -144,11 +142,9 @@ export function Sidebar({
             textBufferRef={agent.textBufferRef}
             onTextDrained={agent.notifyTextDrained}
             limitReached={agent.limitReached}
-            toast={agent.toast}
             onSend={agent.sendMessage}
             onStop={agent.stopStreaming}
             onClear={agent.clearHistory}
-            onRate={agent.rateMessage}
           />
         )}
       </div>
