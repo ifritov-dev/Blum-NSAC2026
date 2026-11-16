@@ -123,9 +123,9 @@ Never commit an API key. If a key was ever pushed to GitHub, revoke it in your C
 
 | Role | Person |
 | --- | --- |
-| Full-stack architecture, FastAPI backend, React UI & SI Agent | Team Blum |
+| Full-stack architecture, FastAPI backend, React UI & SI Agent | maxim-paradise |
 | Initial Streamlit prototype & frontend design | Oleksandra Nedielko |
-| Data, scientific verification & deployment | Team Blum |
+| Data, scientific verification & deployment | ifritov-dev |
 
 ## Resources
 
